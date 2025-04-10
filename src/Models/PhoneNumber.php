@@ -65,7 +65,7 @@ class PhoneNumber implements JsonSerializable
     /**
      * @throws PhoneNumberParseException
      */
-    public function format(PhoneNumberFormat|int|null $format): string
+    public function format(PhoneNumberFormat|int $format = PhoneNumberFormat::E164): string
     {
         if (is_int($format)) {
             $format = PhoneNumberFormat::from($format);
