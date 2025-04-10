@@ -52,7 +52,7 @@ class StringBasedValidationTest extends TestCase
     #[Test]
     public function it_validates_a_valid_phone_number_for_ghana()
     {
-        // US number (valid)
+        // GH number (valid)
         $data = ['phone' => '+233244123456'];
 
         $validator = Validator::make($data, [
