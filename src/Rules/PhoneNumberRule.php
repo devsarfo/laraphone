@@ -22,7 +22,7 @@ class PhoneNumberRule implements ValidationRule
 
     public function validate(string $attribute, mixed $value, \Closure $fail): void
     {
-        if (!is_string($value) || trim($value) === '') {
+        if (! is_string($value) || trim($value) === '') {
             return;
         }
 
@@ -32,13 +32,14 @@ class PhoneNumberRule implements ValidationRule
         if (empty($this->countryCodes)) {
             try {
                 $phone = $util->parse($value); // Should be in international format
-                if (!$util->isValidNumber($phone) || !str_starts_with($value, '+')) {
+                if (! $util->isValidNumber($phone) || ! str_starts_with($value, '+')) {
                     $fail($this->message($attribute));
                 }
 
                 return;
             } catch (\Throwable $e) {
                 $fail($this->message($attribute));
+
                 return;
             }
         }
@@ -47,7 +48,7 @@ class PhoneNumberRule implements ValidationRule
         foreach ($this->countryCodes as $countryCode) {
             try {
                 // Check if country code is valid
-                if (!in_array($countryCode, CountryUtil::getCountryCodes())) {
+                if (! in_array($countryCode, CountryUtil::getCountryCodes())) {
                     $fail(trans('laraphone::validation.field_country_code_invalid', [
                         'attribute' => $attribute,
                         'country' => $countryCode,
@@ -65,7 +66,7 @@ class PhoneNumberRule implements ValidationRule
             }
         }
 
-        $countries = array_map(fn($countryCode) => CountryUtil::name($countryCode), $this->countryCodes);
+        $countries = array_map(fn ($countryCode) => CountryUtil::name($countryCode), $this->countryCodes);
         $list = implode(', ', $countries);
 
         $fail(trans('laraphone::validation.field_phone_country_code', [
