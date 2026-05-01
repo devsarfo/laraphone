@@ -2,6 +2,21 @@
 
 All notable changes to `LaraPhone` will be documented in this file.
 
+## 1.2 - 2026-05-01
+
+### 🚀 Laravel 13 Support
+
+We’ve updated LaraPhone to fully support Laravel 13! This release aligns the package with the latest framework features and PHP 8.3/8.4 standards.
+
+### ⚠️ Breaking Changes
+
+To keep the codebase modern and maintainable, we are officially dropping support for:
+
+- Laravel 10 (now End-of-Life)
+- PHP 8.1
+
+Users on these legacy versions should continue using the v1.1
+
 ## LaraPhone v1.0.0 – Initial Stable Release - 2025-04-09
 
 ### v1.0.0 – Initial Release 🎉
