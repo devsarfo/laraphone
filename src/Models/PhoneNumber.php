@@ -2,6 +2,7 @@
 
 namespace DevSarfo\LaraPhone\Models;
 
+use DevSarfo\LaraPhone\Enums\PhoneFormat;
 use DevSarfo\LaraPhone\Exceptions\CountryCodeException;
 use DevSarfo\LaraPhone\Exceptions\PhoneNumberParseException;
 use DevSarfo\LaraPhone\Utils\CountryUtil;
@@ -73,15 +74,18 @@ class PhoneNumber implements JsonSerializable
     }
 
     /**
+     * Passing libphonenumber\PhoneNumberFormat is deprecated and will be
+     * removed in 2.0; use PhoneFormat instead.
+     *
      * @throws PhoneNumberParseException
+     * @throws \ValueError for an unknown integer format
      */
-    public function format(PhoneNumberFormat|int $format = PhoneNumberFormat::E164): string
+    public function format(PhoneFormat|PhoneNumberFormat|int $format = PhoneFormat::E164): string
     {
-        if (is_int($format)) {
-            $format = PhoneNumberFormat::from($format);
-        }
-
-        return PhoneNumberUtil::getInstance()->format($this->toPhoneNumber(), $format);
+        return PhoneNumberUtil::getInstance()->format(
+            $this->toPhoneNumber(),
+            PhoneFormat::resolve($format)->toLibPhoneNumber()
+        );
     }
 
     /**
@@ -89,7 +93,7 @@ class PhoneNumber implements JsonSerializable
      */
     public function formatInternational(): string
     {
-        return $this->format(PhoneNumberFormat::INTERNATIONAL);
+        return $this->format(PhoneFormat::INTERNATIONAL);
     }
 
     /**
@@ -97,7 +101,7 @@ class PhoneNumber implements JsonSerializable
      */
     public function formatNational(): string
     {
-        return $this->format(PhoneNumberFormat::NATIONAL);
+        return $this->format(PhoneFormat::NATIONAL);
     }
 
     /**
@@ -105,7 +109,7 @@ class PhoneNumber implements JsonSerializable
      */
     public function formatE164(): string
     {
-        return $this->format(PhoneNumberFormat::E164);
+        return $this->format(PhoneFormat::E164);
     }
 
     /**
@@ -113,7 +117,7 @@ class PhoneNumber implements JsonSerializable
      */
     public function formatRFC3966(): string
     {
-        return $this->format(PhoneNumberFormat::RFC3966);
+        return $this->format(PhoneFormat::RFC3966);
     }
 
     public function isValid(): bool

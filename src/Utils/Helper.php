@@ -1,5 +1,6 @@
 <?php
 
+use DevSarfo\LaraPhone\Enums\PhoneFormat;
 use DevSarfo\LaraPhone\Exceptions\PhoneNumberParseException;
 use DevSarfo\LaraPhone\Models\PhoneNumber;
 use libphonenumber\PhoneNumberFormat;
@@ -10,7 +11,7 @@ if (! function_exists('phone')) {
      *
      * @throws PhoneNumberParseException
      */
-    function phone(?string $phone, array|string $country = [], PhoneNumberFormat|int|null $format = null): PhoneNumber|string
+    function phone(?string $phone, array|string $country = [], PhoneFormat|PhoneNumberFormat|int|null $format = null): PhoneNumber|string
     {
         $instance = new PhoneNumber($phone, $country);
 

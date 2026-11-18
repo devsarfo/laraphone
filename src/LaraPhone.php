@@ -2,6 +2,7 @@
 
 namespace DevSarfo\LaraPhone;
 
+use DevSarfo\LaraPhone\Enums\PhoneFormat;
 use DevSarfo\LaraPhone\Exceptions\PhoneNumberParseException;
 use DevSarfo\LaraPhone\Models\PhoneNumber;
 use DevSarfo\LaraPhone\Utils\CountryUtil;
@@ -30,7 +31,7 @@ class LaraPhone
      *
      * @throws PhoneNumberParseException
      */
-    public function format(?string $phone, string|array $countryCodes = [], PhoneNumberFormat|int $format = PhoneNumberFormat::E164): string
+    public function format(?string $phone, string|array $countryCodes = [], PhoneFormat|PhoneNumberFormat|int $format = PhoneFormat::E164): string
     {
         return $this->make($phone, $countryCodes)->format($format);
     }

@@ -5,7 +5,7 @@ namespace DevSarfo\LaraPhone\Exceptions;
 use Illuminate\Support\Arr;
 use libphonenumber\NumberParseException;
 
-class PhoneNumberParseException extends NumberParseException
+class PhoneNumberParseException extends NumberParseException implements LaraPhoneException
 {
     protected string $phone;
 
