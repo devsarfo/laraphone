@@ -16,6 +16,11 @@ on:
       - 'phpunit.xml.dist'
       - 'composer.json'
       - 'composer.lock'
+  # Weekly run against the latest dependencies, so new libphonenumber
+  # metadata (changed numbering plans, new regions) is caught early.
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
 
 jobs:
   test:
