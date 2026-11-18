@@ -65,11 +65,17 @@ jobs:
           echo "::add-matcher::${{ runner.tool_cache }}/php.json"
           echo "::add-matcher::${{ runner.tool_cache }}/phpunit.json"
 
+      # Every Laravel 11 release has open security advisories (security support
+      # ended March 2026), so Composer refuses to install it by default.
+      # --no-blocking allows it for the Laravel 11 jobs only, to keep checking
+      # compatibility. It does not affect what users of the package install.
       - name: Install dependencies
+        env:
+          NO_BLOCKING: ${{ matrix.laravel == '11.*' && '--no-blocking' || '' }}
         run: |
-          composer require "laravel/framework:${{ matrix.laravel }}" "orchestra/testbench:${{ matrix.testbench }}" --no-interaction --no-update
-          composer require "giggsey/libphonenumber-for-php-lite=^${{ matrix.libphonenumber }}" --no-interaction --no-update
-          composer update --${{ matrix.stability }} --prefer-dist --no-interaction
+          composer require "laravel/framework:${{ matrix.laravel }}" "orchestra/testbench:${{ matrix.testbench }}" --no-interaction --no-update $NO_BLOCKING
+          composer require "giggsey/libphonenumber-for-php-lite=^${{ matrix.libphonenumber }}" --no-interaction --no-update $NO_BLOCKING
+          composer update --${{ matrix.stability }} --prefer-dist --no-interaction $NO_BLOCKING
 
       - name: List Installed Dependencies
         run: composer show -D
