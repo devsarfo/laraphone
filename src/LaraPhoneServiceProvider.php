@@ -31,6 +31,8 @@ class LaraPhoneServiceProvider extends PackageServiceProvider
     {
         $this->app->singleton('libphonenumber', fn () => PhoneNumberUtil::getInstance());
         $this->app->alias('libphonenumber', PhoneNumberUtil::class);
+
+        $this->app->singleton(LaraPhone::class);
     }
 
     public function packageBooted(): void

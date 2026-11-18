@@ -13,11 +13,17 @@ class CountryUtil
         return self::countries()[strtoupper($countryCode)] ?? strtoupper($countryCode);
     }
 
-    public static function isValid($countryCode): bool
+    public static function isValid(mixed $countryCode): bool
     {
-        return ! is_null($countryCode) && in_array(strtoupper($countryCode), self::getCountryCodes());
+        return is_string($countryCode) && in_array(strtoupper($countryCode), self::getCountryCodes());
     }
 
+    /**
+     * @param  string|array<int, string>  $countryCodes
+     * @return ($countryCodes is string ? string : array<int, string>)
+     *
+     * @throws CountryCodeException
+     */
     public static function parse(string|array $countryCodes): string|array
     {
         $values = collect(Arr::wrap($countryCodes))->map(fn ($countryCode) => strtoupper($countryCode))->filter(function ($countryCode) {
@@ -31,11 +37,17 @@ class CountryUtil
         return is_array($countryCodes) ? $values->values()->toArray() : $values->first();
     }
 
+    /**
+     * @return array<int, string>
+     */
     public static function getCountryCodes(): array
     {
         return array_map('strtoupper', PhoneNumberUtil::getInstance()->getSupportedRegions());
     }
 
+    /**
+     * @return array<string, string>
+     */
     private static function countries(): array
     {
         return [
@@ -49,6 +61,7 @@ class CountryUtil
             'AQ' => 'Antarctica',
             'AG' => 'Antigua and Barbuda',
             'AR' => 'Argentina',
+            'AC' => 'Ascension Island',
             'AM' => 'Armenia',
             'AW' => 'Aruba',
             'AU' => 'Australia',
@@ -159,6 +172,7 @@ class CountryUtil
             'KI' => 'Kiribati',
             'KP' => "Korea (the Democratic People's Republic of)",
             'KR' => 'Korea (the Republic of)',
+            'XK' => 'Kosovo',
             'KW' => 'Kuwait',
             'KG' => 'Kyrgyzstan',
             'LA' => "Lao People's Democratic Republic (the)",
@@ -265,6 +279,7 @@ class CountryUtil
             'TK' => 'Tokelau',
             'TO' => 'Tonga',
             'TT' => 'Trinidad and Tobago',
+            'TA' => 'Tristan da Cunha',
             'TN' => 'Tunisia',
             'TR' => 'Turkey',
             'TM' => 'Turkmenistan',
@@ -284,7 +299,7 @@ class CountryUtil
             'VG' => 'Virgin Islands (British)',
             'VI' => 'Virgin Islands (U.S.)',
             'WF' => 'Wallis and Futuna',
-            'EH' => 'Western Sahara*',
+            'EH' => 'Western Sahara',
             'YE' => 'Yemen',
             'ZM' => 'Zambia',
             'ZW' => 'Zimbabwe',

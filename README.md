@@ -84,6 +84,22 @@ phone('0244123456', 'GH');          // PhoneNumber instance
 phone('0244123456', 'GH', $format); // string
 ```
 
+### Facade
+
+The `LaraPhone` facade offers the same operations without creating objects yourself:
+
+```php
+use DevSarfo\LaraPhone\Facades\LaraPhone;
+use libphonenumber\PhoneNumberFormat;
+
+LaraPhone::make('0244123456', 'GH');                                // PhoneNumber instance
+LaraPhone::isValid('0244123456', 'GH');                             // true
+LaraPhone::format('0244123456', 'GH');                              // +233244123456
+LaraPhone::format('0244123456', 'GH', PhoneNumberFormat::NATIONAL); // 024 412 3456
+LaraPhone::countryName('GH');                                       // Ghana
+LaraPhone::supportedCountries();                                    // ['AC', 'AD', 'AE', ...]
+```
+
 ### Formatting
 A PhoneNumber can be formatted in various ways:
 
