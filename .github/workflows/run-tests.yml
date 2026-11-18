@@ -32,7 +32,7 @@ jobs:
         os: [ubuntu-latest]
         php: [8.5, 8.4, 8.3, 8.2]
         laravel: [13.*, 12.*, 11.*]
-        libphonenumber: [9.0.2]
+        libphonenumber: [9.0.43]
         stability: [prefer-lowest, prefer-stable]
         include:
           - laravel: 13.*
