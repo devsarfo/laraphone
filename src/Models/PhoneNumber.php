@@ -19,8 +19,14 @@ class PhoneNumber implements JsonSerializable
 
     protected ?string $phone;
 
+    /**
+     * @var array<int, string>
+     */
     protected array $countryCodes;
 
+    /**
+     * @param  string|array<int, string>  $countryCodes
+     */
     public function __construct(?string $phone, array|string $countryCodes = [])
     {
         $this->phone = is_null($phone) ? '' : $phone;
@@ -45,7 +51,7 @@ class PhoneNumber implements JsonSerializable
                 continue;
             }
 
-            if (PhoneNumberUtil::getInstance()->isValidNumberForRegion($phoneNumber, $countryCode ?? 'ZZ')) {
+            if (PhoneNumberUtil::getInstance()->isValidNumberForRegion($phoneNumber, $countryCode)) {
                 return PhoneNumberUtil::getInstance()->getRegionCodeForNumber($phoneNumber);
             }
         }
@@ -53,6 +59,9 @@ class PhoneNumber implements JsonSerializable
         return null;
     }
 
+    /**
+     * @param  string|array<int, string>  $countryCode
+     */
     public function checkCountryCode(array|string $countryCode): bool
     {
         $countryCodes = CountryUtil::parse(Arr::wrap($countryCode));
@@ -128,6 +137,9 @@ class PhoneNumber implements JsonSerializable
      * Keep the raw input and country codes so that invalid numbers can be
      * serialized (e.g. inside queued jobs) without throwing.
      */
+    /**
+     * @return array{phone: string, countryCodes: array<int, string>}
+     */
     public function __serialize(): array
     {
         return [
@@ -136,6 +148,9 @@ class PhoneNumber implements JsonSerializable
         ];
     }
 
+    /**
+     * @param  array{phone?: string, countryCodes?: array<int, string>}  $serialized
+     */
     public function __unserialize(array $serialized): void
     {
         $this->phone = $serialized['phone'] ?? '';

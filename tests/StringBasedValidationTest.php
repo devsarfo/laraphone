@@ -1,224 +1,51 @@
 <?php
 
-namespace DevSarfo\LaraPhone\Tests;
-
 use DevSarfo\LaraPhone\Exceptions\CountryCodeException;
 use DevSarfo\LaraPhone\Utils\CountryUtil;
-use Illuminate\Support\Facades\Validator;
-use PHPUnit\Framework\Attributes\Test;
 
-class StringBasedValidationTest extends TestCase
-{
-    #[Test]
-    public function it_validates_a_valid_phone_number_for_without_country()
-    {
-        // Norwegian number (valid)
-        $data = ['phone' => '+4722334455'];
+it('passes valid numbers', function (?string $phone, string $rule) {
+    expect(validatePhone($phone, $rule)->passes())->toBeTrue();
+})->with([
+    'international, no country' => ['+4722334455', 'phone'],
+    'international, Norway' => ['+4722334455', 'phone:NO'],
+    'international, Ghana' => ['+233244123456', 'phone:GH'],
+    'another Norwegian number' => ['+4722222222', 'phone'],
+    'null when nullable' => [null, 'nullable|phone'],
+    'present when nullable' => ['+4722334455', 'nullable|phone'],
+    'national format with country' => ['0244123456', 'nullable|phone:GH'],
+]);
 
-        $validator = Validator::make($data, [
-            'phone' => 'phone',
-        ]);
+it('fails invalid numbers with a specific message', function (string $phone, string $rule, string $message) {
+    $validator = validatePhone($phone, $rule);
 
-        $this->assertFalse($validator->fails());
-    }
+    expect($validator->fails())->toBeTrue()
+        ->and($validator->errors()->first('phone'))->toBe($message);
+})->with([
+    'valid number, wrong country' => ['+4722334455', 'phone:GH', 'The phone must be a valid phone number for Ghana.'],
+    'unsupported country code' => ['+4722334455', 'phone:XX', 'The phone has an invalid country code XX.'],
+    'bad calling code, Norway' => ['+XX22334455', 'phone:NO', 'The phone must be a valid phone number for Norway.'],
+    'bad calling code, Ghana' => ['+XXX244123456', 'phone:GH', 'The phone must be a valid phone number for Ghana.'],
+    'invalid characters' => ['+47@22334455', 'nullable|phone', 'The phone field must be a valid phone number.'],
+    'too short national number' => ['024412345', 'nullable|phone:GH', 'The phone must be a valid phone number for Ghana.'],
+]);
 
-    #[Test]
-    public function it_invalidates_a_valid_phone_number_for_with_wrong_valid_country()
-    {
-        // Norwegian number (valid)
-        $data = ['phone' => '+4722334455'];
+describe('CountryUtil::parse', function () {
+    it('parses a single country code', function () {
+        expect(CountryUtil::parse('NO'))->toBe('NO');
+    });
 
-        $validator = Validator::make($data, [
-            'phone' => 'phone:GH',
-        ]);
+    it('parses multiple country codes', function () {
+        expect(CountryUtil::parse(['NO', 'GH']))->toBe(['NO', 'GH']);
+    });
 
-        $this->assertTrue($validator->fails());
-        $this->assertEquals('The phone must be a valid phone number for Ghana.', $validator->errors()->first('phone'));
-    }
+    it('throws for an unsupported country code', function () {
+        CountryUtil::parse('XX');
+    })->throws(CountryCodeException::class, 'The country code XX is invalid.');
+});
 
-    #[Test]
-    public function it_validates_a_valid_phone_number_for_norway()
-    {
-        // Norwegian number (valid)
-        $data = ['phone' => '+4722334455'];
+it('builds the CountryCodeException message', function () {
+    $exception = new CountryCodeException('zz');
 
-        $validator = Validator::make($data, [
-            'phone' => 'phone:NO',
-        ]);
-
-        $this->assertFalse($validator->fails());
-    }
-
-    #[Test]
-    public function it_validates_a_valid_phone_number_for_ghana()
-    {
-        // GH number (valid)
-        $data = ['phone' => '+233244123456'];
-
-        $validator = Validator::make($data, [
-            'phone' => 'phone:GH',
-        ]);
-
-        $this->assertFalse($validator->fails());
-    }
-
-    #[Test]
-    public function it_invalidates_a_phone_number_for_invalid_country_code()
-    {
-        // Invalid country code test (XX)
-        $data = ['phone' => '+4722334455'];
-
-        $validator = Validator::make($data, [
-            'phone' => 'phone:XX', // XX is an invalid country code
-        ]);
-
-        $this->assertTrue($validator->fails());
-        $this->assertEquals('The phone has an invalid country code XX.', $validator->errors()->first('phone'));
-    }
-
-    #[Test]
-    public function it_validates_a_phone_number_in_international_format()
-    {
-        // Valid international phone number (Norwegian)
-        $data = ['phone' => '+4722222222'];
-
-        $validator = Validator::make($data, [
-            'phone' => 'phone',
-        ]);
-
-        $this->assertFalse($validator->fails());
-    }
-
-    #[Test]
-    public function it_invalidates_a_phone_number_for_invalid_country_code_for_norway()
-    {
-        // Invalid Norwegian phone number with wrong country code
-        $data = ['phone' => '+XX22334455'];
-
-        $validator = Validator::make($data, [
-            'phone' => 'phone:NO',
-        ]);
-
-        $this->assertTrue($validator->fails());
-        $this->assertEquals('The phone must be a valid phone number for Norway.', $validator->errors()->first('phone'));
-    }
-
-    #[Test]
-    public function it_invalidates_a_phone_number_for_invalid_country_code_for_ghana()
-    {
-        // Invalid Norwegian phone number with wrong country code
-        $data = ['phone' => '+XXX244123456'];
-
-        $validator = Validator::make($data, [
-            'phone' => 'phone:GH',
-        ]);
-
-        $this->assertTrue($validator->fails());
-        $this->assertEquals('The phone must be a valid phone number for Ghana.', $validator->errors()->first('phone'));
-    }
-
-    #[Test]
-    public function it_validates_country_codes_in_parse_method()
-    {
-        // Test valid country code (NO)
-        $validCountryCode = 'NO';
-        $invalidCountryCode = 'XX';
-
-        $result = CountryUtil::parse($validCountryCode);
-        $this->assertEquals('NO', $result);
-
-        // Test invalid country code (this should throw an exception)
-        $this->expectException(CountryCodeException::class);
-        $this->expectExceptionMessage('The country code XX is invalid.');
-
-        CountryUtil::parse($invalidCountryCode);
-    }
-
-    #[Test]
-    public function it_parses_multiple_country_codes()
-    {
-        // Parse multiple country codes (NO, GH)
-        $validCountryCodes = ['NO', 'GH'];
-
-        $result = CountryUtil::parse($validCountryCodes);
-        $this->assertEquals(['NO', 'GH'], $result);
-    }
-
-    #[Test]
-    public function it_throws_exception_for_invalid_country_code()
-    {
-        // Test invalid country code (ZZ)
-        $invalidCountryCode = 'ZZ';
-
-        $this->expectException(CountryCodeException::class);
-        $this->expectExceptionMessage('The country code ZZ is invalid.');
-
-        throw new CountryCodeException($invalidCountryCode);
-    }
-
-    #[Test]
-    public function it_validates_phone_number_can_be_null()
-    {
-        // Valid case: phone number is null
-        $data = ['phone' => null];
-
-        $validator = Validator::make($data, [
-            'phone' => 'nullable|phone',  // 'nullable' allows null, 'phone' validates the format when not null
-        ]);
-
-        $this->assertFalse($validator->fails());
-    }
-
-    #[Test]
-    public function it_invalidates_phone_number_when_present_but_invalid()
-    {
-        // Invalid case: phone number is present but invalid
-        $data = ['phone' => '+47@22334455'];
-
-        $validator = Validator::make($data, [
-            'phone' => 'nullable|phone',
-        ]);
-
-        $this->assertTrue($validator->fails());
-        $this->assertEquals('The phone field must be a valid phone number.', $validator->errors()->first('phone'));
-    }
-
-    #[Test]
-    public function it_validates_phone_number_when_present_and_valid()
-    {
-        // Invalid case: phone number is present but invalid
-        $data = ['phone' => '+4722334455'];
-
-        $validator = Validator::make($data, [
-            'phone' => 'nullable|phone',
-        ]);
-
-        $this->assertFalse($validator->fails());
-    }
-
-    #[Test]
-    public function it_validates_phone_number_when_using_national_format_and_country_code()
-    {
-        // Invalid case: phone number is present but invalid
-        $data = ['phone' => '0244123456'];
-
-        $validator = Validator::make($data, [
-            'phone' => 'nullable|phone:GH',
-        ]);
-
-        $this->assertFalse($validator->fails());
-    }
-
-    #[Test]
-    public function it_invalidates_phone_with_valid_country_code_but_invalid_national_format()
-    {
-        $data = ['phone' => '024412345'];
-
-        $validator = Validator::make($data, [
-            'phone' => 'nullable|phone:GH',
-        ]);
-
-        $this->assertTrue($validator->fails());
-        $this->assertEquals('The phone must be a valid phone number for Ghana.', $validator->errors()->first('phone'));
-    }
-}
+    expect($exception->getMessage())->toBe('The country code ZZ is invalid.')
+        ->and($exception->getCountryCode())->toBe('ZZ');
+});

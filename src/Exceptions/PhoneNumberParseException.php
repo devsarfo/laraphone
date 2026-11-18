@@ -9,6 +9,9 @@ class PhoneNumberParseException extends NumberParseException
 {
     protected string $phone;
 
+    /**
+     * @var array<int, string>
+     */
     protected array $countryCodes = [];
 
     public static function countryRequired(string $phone): static
@@ -24,6 +27,9 @@ class PhoneNumberParseException extends NumberParseException
         return $exception;
     }
 
+    /**
+     * @param  string|array<int, string>  $countryCodes
+     */
     public static function countryMismatch(string $phone, array|string $countryCodes): static
     {
         $countries = array_filter(Arr::wrap($countryCodes));
@@ -47,6 +53,9 @@ class PhoneNumberParseException extends NumberParseException
         return $this->phone;
     }
 
+    /**
+     * @return array<int, string>
+     */
     public function getCountryCodes(): array
     {
         return $this->countryCodes;

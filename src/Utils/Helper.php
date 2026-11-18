@@ -6,6 +6,8 @@ use libphonenumber\PhoneNumberFormat;
 
 if (! function_exists('phone')) {
     /**
+     * @param  string|array<int, string>  $country
+     *
      * @throws PhoneNumberParseException
      */
     function phone(?string $phone, array|string $country = [], PhoneNumberFormat|int|null $format = null): PhoneNumber|string
