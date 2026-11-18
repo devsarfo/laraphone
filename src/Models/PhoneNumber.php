@@ -2,6 +2,8 @@
 
 namespace DevSarfo\LaraPhone\Models;
 
+use DevSarfo\LaraPhone\Enums\PhoneFormat;
+use DevSarfo\LaraPhone\Exceptions\CountryCodeException;
 use DevSarfo\LaraPhone\Exceptions\PhoneNumberParseException;
 use DevSarfo\LaraPhone\Utils\CountryUtil;
 use Exception;
@@ -18,8 +20,14 @@ class PhoneNumber implements JsonSerializable
 
     protected ?string $phone;
 
+    /**
+     * @var array<int, string>
+     */
     protected array $countryCodes;
 
+    /**
+     * @param  string|array<int, string>  $countryCodes
+     */
     public function __construct(?string $phone, array|string $countryCodes = [])
     {
         $this->phone = is_null($phone) ? '' : $phone;
@@ -44,7 +52,7 @@ class PhoneNumber implements JsonSerializable
                 continue;
             }
 
-            if (PhoneNumberUtil::getInstance()->isValidNumberForRegion($phoneNumber, $countryCode ?? 'ZZ')) {
+            if (PhoneNumberUtil::getInstance()->isValidNumberForRegion($phoneNumber, $countryCode)) {
                 return PhoneNumberUtil::getInstance()->getRegionCodeForNumber($phoneNumber);
             }
         }
@@ -52,6 +60,9 @@ class PhoneNumber implements JsonSerializable
         return null;
     }
 
+    /**
+     * @param  string|array<int, string>  $countryCode
+     */
     public function checkCountryCode(array|string $countryCode): bool
     {
         $countryCodes = CountryUtil::parse(Arr::wrap($countryCode));
@@ -63,15 +74,18 @@ class PhoneNumber implements JsonSerializable
     }
 
     /**
+     * Passing libphonenumber\PhoneNumberFormat is deprecated and will be
+     * removed in 2.0; use PhoneFormat instead.
+     *
      * @throws PhoneNumberParseException
+     * @throws \ValueError for an unknown integer format
      */
-    public function format(PhoneNumberFormat|int $format = PhoneNumberFormat::E164): string
+    public function format(PhoneFormat|PhoneNumberFormat|int $format = PhoneFormat::E164): string
     {
-        if (is_int($format)) {
-            $format = PhoneNumberFormat::from($format);
-        }
-
-        return PhoneNumberUtil::getInstance()->format($this->toPhoneNumber(), $format);
+        return PhoneNumberUtil::getInstance()->format(
+            $this->toPhoneNumber(),
+            PhoneFormat::resolve($format)->toLibPhoneNumber()
+        );
     }
 
     /**
@@ -79,7 +93,7 @@ class PhoneNumber implements JsonSerializable
      */
     public function formatInternational(): string
     {
-        return $this->format(PhoneNumberFormat::INTERNATIONAL);
+        return $this->format(PhoneFormat::INTERNATIONAL);
     }
 
     /**
@@ -87,7 +101,7 @@ class PhoneNumber implements JsonSerializable
      */
     public function formatNational(): string
     {
-        return $this->format(PhoneNumberFormat::NATIONAL);
+        return $this->format(PhoneFormat::NATIONAL);
     }
 
     /**
@@ -95,7 +109,7 @@ class PhoneNumber implements JsonSerializable
      */
     public function formatE164(): string
     {
-        return $this->format(PhoneNumberFormat::E164);
+        return $this->format(PhoneFormat::E164);
     }
 
     /**
@@ -103,37 +117,57 @@ class PhoneNumber implements JsonSerializable
      */
     public function formatRFC3966(): string
     {
-        return $this->format(PhoneNumberFormat::RFC3966);
+        return $this->format(PhoneFormat::RFC3966);
     }
 
     public function isValid(): bool
     {
         try {
-            return PhoneNumberUtil::getInstance()->isValidNumberForRegion($this->toPhoneNumber(), $this->getCountryCode() ?? 'ZZ');
-        } catch (NumberParseException) {
+            $countryCode = $this->getCountryCode();
+            $allowed = CountryUtil::parse($this->countryCodes);
+
+            // Like the validation rule, the given country codes restrict the
+            // allowed countries, including for numbers in international format.
+            if ($countryCode === null || (! empty($allowed) && ! in_array($countryCode, $allowed, true))) {
+                return false;
+            }
+
+            return PhoneNumberUtil::getInstance()->isValidNumberForRegion($this->toPhoneNumber(), $countryCode);
+        } catch (NumberParseException|CountryCodeException) {
             return false;
         }
     }
 
     /**
-     * @throws PhoneNumberParseException
+     * The E.164 representation, or the raw input when it cannot be parsed.
      */
     public function jsonSerialize(): string
     {
-        return $this->formatE164();
+        return (string) $this;
     }
 
     /**
-     * @throws PhoneNumberParseException
+     * Keep the raw input and country codes so that invalid numbers can be
+     * serialized (e.g. inside queued jobs) without throwing.
      */
-    public function __serialize()
+    /**
+     * @return array{phone: string, countryCodes: array<int, string>}
+     */
+    public function __serialize(): array
     {
-        return ['phone' => $this->formatE164()];
+        return [
+            'phone' => $this->phone,
+            'countryCodes' => $this->countryCodes,
+        ];
     }
 
-    public function __unserialize(array $serialized)
+    /**
+     * @param  array{phone?: string, countryCodes?: array<int, string>}  $serialized
+     */
+    public function __unserialize(array $serialized): void
     {
-        $this->phone = $serialized['phone'];
+        $this->phone = $serialized['phone'] ?? '';
+        $this->countryCodes = $serialized['countryCodes'] ?? [];
     }
 
     /**
@@ -144,9 +178,9 @@ class PhoneNumber implements JsonSerializable
         try {
             return PhoneNumberUtil::getInstance()->parse($this->phone, $this->getCountryCode());
         } catch (NumberParseException) {
-            empty($this->countries)
+            empty($this->countryCodes)
                 ? throw PhoneNumberParseException::countryRequired($this->phone)
-                : throw PhoneNumberParseException::countryMismatch($this->phone, $this->countries);
+                : throw PhoneNumberParseException::countryMismatch($this->phone, $this->countryCodes);
         }
     }
 

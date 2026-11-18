@@ -49,11 +49,21 @@ The country codes should be [*ISO 3166-1 alpha-2 compliant*](http://en.wikipedia
 
 ### Validation Message
 
-We provide validation for various cases out of the box. However, to enable the custom phone validation message, please add the following line to the `validation.php` language file in your `resources/lang/{language}/` directory (e.g., `resources/lang/en/validation.php`):
+Validation messages are provided out of the box, e.g. *"The phone must be a valid phone number for Ghana."* Publish the translations to change them.
+
+You can also override the message the usual Laravel ways. Custom messages may use the `:country` placeholder:
 
 ```php
+// Per validator
+Validator::make($data, ['phone' => 'phone:GH,NO'], [
+    'phone.phone' => 'Enter a valid :country number.',
+]);
+
+// Application-wide, in lang/{locale}/validation.php
 'phone' => 'The :attribute field must be a valid phone number.',
 ```
+
+An application-wide `validation.phone` line only replaces the generic message (no country given). Country-specific messages such as *"…for Ghana."* still come from the package unless you set an inline or `validation.custom` message.
 
 ## PhoneNumber Utility class
 
@@ -71,20 +81,56 @@ Alternatively you can use the `phone()` function found in the `Helper.php`. It r
 ```php
 phone('+233244123456');             // PhoneNumber instance
 phone('0244123456', 'GH');          // PhoneNumber instance
-phone('0244123456', 'GH', $format); // string
+phone('0244123456', 'GH', PhoneFormat::NATIONAL); // string
+```
+
+### Facade
+
+The `LaraPhone` facade offers the same operations without creating objects yourself:
+
+```php
+use DevSarfo\LaraPhone\Enums\PhoneFormat;
+use DevSarfo\LaraPhone\Facades\LaraPhone;
+
+LaraPhone::make('0244123456', 'GH');                          // PhoneNumber instance
+LaraPhone::isValid('0244123456', 'GH');                       // true
+LaraPhone::format('0244123456', 'GH');                        // +233244123456
+LaraPhone::format('0244123456', 'GH', PhoneFormat::NATIONAL); // 024 412 3456
+LaraPhone::countryName('GH');                                 // Ghana
+LaraPhone::supportedCountries();                              // ['AC', 'AD', 'AE', ...]
 ```
 
 ### Formatting
 A PhoneNumber can be formatted in various ways:
 
 ```php
+use DevSarfo\LaraPhone\Enums\PhoneFormat;
+
 $phone = new PhoneNumber('0244123456', 'GH');
 
-$phone->format($format);       // See libphonenumber\PhoneNumberFormat
+$phone->format(PhoneFormat::NATIONAL); // 024 412 3456
 $phone->formatE164();          // +233244123456
 $phone->formatInternational(); // +233 24 412 3456
 $phone->formatRFC3966();       // tel:+233-24-412-3456
 $phone->formatNational();      // 024 412 3456
+```
+
+> Passing `libphonenumber\PhoneNumberFormat` still works but is deprecated and will be removed in 2.0. Use `DevSarfo\LaraPhone\Enums\PhoneFormat` instead.
+
+For anything the package doesn't wrap, `$phone->toPhoneNumber()` returns the underlying `libphonenumber\PhoneNumber`.
+
+### Exceptions
+
+Every exception the package throws implements `DevSarfo\LaraPhone\Exceptions\LaraPhoneException`:
+
+```php
+use DevSarfo\LaraPhone\Exceptions\LaraPhoneException;
+
+try {
+    $e164 = phone($input, 'GH')->formatE164();
+} catch (LaraPhoneException $e) {
+    // the number couldn't be parsed, or a country code is unsupported
+}
 ```
 
 ### Database

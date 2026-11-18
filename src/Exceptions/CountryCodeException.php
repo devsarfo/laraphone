@@ -4,7 +4,7 @@ namespace DevSarfo\LaraPhone\Exceptions;
 
 use Exception;
 
-class CountryCodeException extends Exception
+class CountryCodeException extends Exception implements LaraPhoneException
 {
     protected string $countryCode;
 

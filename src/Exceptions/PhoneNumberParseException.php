@@ -5,10 +5,13 @@ namespace DevSarfo\LaraPhone\Exceptions;
 use Illuminate\Support\Arr;
 use libphonenumber\NumberParseException;
 
-class PhoneNumberParseException extends NumberParseException
+class PhoneNumberParseException extends NumberParseException implements LaraPhoneException
 {
     protected string $phone;
 
+    /**
+     * @var array<int, string>
+     */
     protected array $countryCodes = [];
 
     public static function countryRequired(string $phone): static
@@ -24,6 +27,9 @@ class PhoneNumberParseException extends NumberParseException
         return $exception;
     }
 
+    /**
+     * @param  string|array<int, string>  $countryCodes
+     */
     public static function countryMismatch(string $phone, array|string $countryCodes): static
     {
         $countries = array_filter(Arr::wrap($countryCodes));
@@ -32,12 +38,12 @@ class PhoneNumberParseException extends NumberParseException
         $exception = new static(
             NumberParseException::INVALID_COUNTRY_CODE,
             trans('laraphone::validation.country_code_invalid', [
-                'country_code' => implode(', ', $countries),
+                'country' => implode(', ', array_map('strtoupper', $countries)),
             ])
         );
 
         $exception->phone = $phone;
-        $exception->countryCodes = $countryCodes;
+        $exception->countryCodes = array_values($countries);
 
         return $exception;
     }
@@ -47,6 +53,9 @@ class PhoneNumberParseException extends NumberParseException
         return $this->phone;
     }
 
+    /**
+     * @return array<int, string>
+     */
     public function getCountryCodes(): array
     {
         return $this->countryCodes;
