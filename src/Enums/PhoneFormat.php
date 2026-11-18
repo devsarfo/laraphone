@@ -33,6 +33,31 @@ enum PhoneFormat: int
     }
 
     /**
+     * The "laraphone.default_format" config value, or E164 when it is unset
+     * or not a valid format name.
+     */
+    public static function default(): self
+    {
+        try {
+            $configured = config('laraphone.default_format');
+        } catch (\Throwable) {
+            return self::E164;
+        }
+
+        if ($configured instanceof self) {
+            return $configured;
+        }
+
+        foreach (self::cases() as $case) {
+            if (is_string($configured) && strcasecmp($case->name, trim($configured)) === 0) {
+                return $case;
+            }
+        }
+
+        return self::E164;
+    }
+
+    /**
      * @internal
      */
     public function toLibPhoneNumber(): PhoneNumberFormat

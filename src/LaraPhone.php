@@ -31,7 +31,7 @@ class LaraPhone
      *
      * @throws PhoneNumberParseException
      */
-    public function format(?string $phone, string|array $countryCodes = [], PhoneFormat|PhoneNumberFormat|int $format = PhoneFormat::E164): string
+    public function format(?string $phone, string|array $countryCodes = [], PhoneFormat|PhoneNumberFormat|int|null $format = null): string
     {
         return $this->make($phone, $countryCodes)->format($format);
     }

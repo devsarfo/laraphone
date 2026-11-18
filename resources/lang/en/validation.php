@@ -3,6 +3,7 @@
 return [
     'phone' => 'The :attribute field must be a valid phone number.',
     'field_phone_country_code' => 'The :attribute must be a valid phone number for :country.',
+    'field_phone_type' => 'The :attribute must be a :type number.',
     'field_country_code_invalid' => 'The :attribute has an invalid country code :country.',
     'exception_country_code' => 'The country code :country is invalid.',
     'country_code_required' => 'The phone number requires a country code to be specified.',

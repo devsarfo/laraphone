@@ -38,20 +38,43 @@ To put constraints on the allowed originating countries, you can explicitly spec
 // 'phone' => new PhoneNumberRule(['NO', 'GH'])
 ```
 
-You can pass the country code from another field in the request. For example, to require a phone number to match the user's country.
+The country codes should be [*ISO 3166-1 alpha-2 compliant*](http://en.wikipedia.org/wiki/ISO_3166-1_alpha-2#Officially_assigned_code_elements).
+
+#### Country from another field
+
+Name another input field instead of a country code to take the country from the request, e.g. to require the phone number to match the user's selected country:
 
 ```php
-'country_code' => 'required',
-'phone' => ['required', new PhoneNumberRule($this->country_code)],
+'country' => 'required',
+'phone' => 'required|phone:country',
+// 'phone' => ['required', new PhoneNumberRule('country')],
+
+// Nested and array fields work too
+'contacts.*.phone' => 'phone:contacts.*.country',
 ```
 
-The country codes should be [*ISO 3166-1 alpha-2 compliant*](http://en.wikipedia.org/wiki/ISO_3166-1_alpha-2#Officially_assigned_code_elements).
+When the field is empty, the number must be in international format.
+
+#### Number types
+
+Add a number type to accept only mobile, fixed-line or other kinds of numbers:
+
+```php
+'phone' => 'phone:GH,mobile',
+'phone' => 'phone:GH,mobile,fixed_line', // either
+// 'phone' => (new PhoneNumberRule('GH'))->mobile(),
+// 'phone' => (new PhoneNumberRule('GH'))->type(PhoneType::TOLL_FREE),
+```
+
+Available types are the values of `DevSarfo\LaraPhone\Enums\PhoneType`: `mobile`, `fixed_line`, `toll_free`, `premium_rate`, `shared_cost`, `voip`, `personal_number`, `pager`, `uan`, `voicemail` and more. In some countries (such as the US) mobile and fixed-line numbers can't be told apart; those numbers satisfy both `mobile` and `fixed_line`.
+
+Each parameter is read as a country code first, then as a number type, then as a field name.
 
 ### Validation Message
 
 Validation messages are provided out of the box, e.g. *"The phone must be a valid phone number for Ghana."* Publish the translations to change them.
 
-You can also override the message the usual Laravel ways. Custom messages may use the `:country` placeholder:
+You can also override the message the usual Laravel ways. Custom messages may use the `:country` and `:type` placeholders:
 
 ```php
 // Per validator
@@ -119,6 +142,18 @@ $phone->formatNational();      // 024 412 3456
 
 For anything the package doesn't wrap, `$phone->toPhoneNumber()` returns the underlying `libphonenumber\PhoneNumber`.
 
+### Number type
+
+```php
+use DevSarfo\LaraPhone\Enums\PhoneType;
+
+$phone = new PhoneNumber('0244123456', 'GH');
+
+$phone->getType();                 // PhoneType::MOBILE
+$phone->isOfType('mobile');        // true
+$phone->isOfType(PhoneType::FIXED_LINE, PhoneType::VOIP); // false
+```
+
 ### Exceptions
 
 Every exception the package throws implements `DevSarfo\LaraPhone\Exceptions\LaraPhoneException`:
@@ -132,6 +167,31 @@ try {
     // the number couldn't be parsed, or a country code is unsupported
 }
 ```
+
+### Eloquent cast
+
+Cast a model attribute with `AsPhoneNumber` to store numbers in E.164 format and get a `PhoneNumber` back:
+
+```php
+use DevSarfo\LaraPhone\Casts\AsPhoneNumber;
+
+class User extends Model
+{
+    protected function casts(): array
+    {
+        return [
+            'phone' => AsPhoneNumber::class.':GH',        // national numbers are Ghanaian
+            // 'phone' => AsPhoneNumber::class.':country', // country from the "country" attribute
+        ];
+    }
+}
+
+$user->phone = '024 412 3456'; // stored as +233244123456
+$user->phone->formatNational(); // 024 412 3456
+$user->toArray()['phone'];      // +233244123456
+```
+
+Invalid numbers are stored exactly as given. Validate input with the `phone` rule before saving. When the country comes from another attribute, set that attribute first.
 
 ### Database
 
@@ -154,6 +214,20 @@ For example:
 4. **Display**: Format it as needed, e.g., `0244 123 456` for Ghana.
 
 This ensures unique, globally recognizable phone numbers that can be displayed differently based on user needs.
+
+## Configuration
+
+Publish the config file (`php artisan vendor:publish --tag="laraphone-config"`) to set:
+
+```php
+// config/laraphone.php
+'default_country' => 'GH',  // parse national numbers without a country: phone('0244123456')
+'default_format' => 'E164', // used by format() without an argument
+```
+
+`default_country` is only a parsing hint for `PhoneNumber`, `phone()`, the facade and the cast. It doesn't restrict valid countries, and the `phone` validation rule doesn't use it.
+
+Country names in messages come from PHP's `intl` extension in the application's locale when it's installed (*"Alemania"* in Spanish), with built-in English names as the fallback.
 
 ## Testing
 

@@ -3,26 +3,48 @@
 namespace DevSarfo\LaraPhone\Rules;
 
 use Closure;
+use DevSarfo\LaraPhone\Enums\PhoneType;
 use DevSarfo\LaraPhone\Utils\CountryUtil;
+use Illuminate\Contracts\Validation\DataAwareRule;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Support\Arr;
 use libphonenumber\NumberParseException;
+use libphonenumber\PhoneNumber as LibPhoneNumber;
 use libphonenumber\PhoneNumberUtil;
 use Stringable;
 
-class PhoneNumberRule implements ValidationRule
+/**
+ * Each parameter is read as, in order of precedence:
+ *  1. a supported ISO 3166-1 alpha-2 country code ("GH"),
+ *  2. a number type ("mobile", "fixed_line", see PhoneType),
+ *  3. the name of another input field holding the country code(s),
+ *  4. otherwise an (unsupported) country code, which fails validation.
+ */
+class PhoneNumberRule implements DataAwareRule, ValidationRule
 {
     /**
+     * Raw parameters, trimmed and de-duplicated (case is kept for field names).
+     *
      * @var array<int, string>
      */
-    protected array $countryCodes;
+    protected array $parameters = [];
 
     /**
-     * @param  string|array<int, string|null>|null  $countryCodes
+     * @var array<int, PhoneType>
      */
-    public function __construct(string|array|null $countryCodes = [])
+    protected array $types = [];
+
+    /**
+     * @var array<string, mixed>
+     */
+    protected array $data = [];
+
+    /**
+     * @param  string|array<int, string|null>|null  $parameters  country codes, number types or field names
+     */
+    public function __construct(string|array|null $parameters = [])
     {
-        $this->countryCodes = static::normalizeCountryCodes($countryCodes);
+        $this->addParameters(Arr::wrap($parameters));
     }
 
     public function validate(string $attribute, mixed $value, Closure $fail): void
@@ -34,6 +56,16 @@ class PhoneNumberRule implements ValidationRule
             // the displayable (custom) attribute name.
             $fail(trans($failure['key'], $failure['replace']));
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    public function setData(array $data): static
+    {
+        $this->data = $data;
+
+        return $this;
     }
 
     /**
@@ -55,26 +87,11 @@ class PhoneNumberRule implements ValidationRule
             return $this->genericFailure();
         }
 
-        $util = PhoneNumberUtil::getInstance();
-
-        // Validate as international if no country code is specified
-        if (empty($this->countryCodes)) {
-            try {
-                $phone = $util->parse($value);
-
-                if (str_starts_with(trim($value), '+') && $util->isValidNumber($phone)) {
-                    return null;
-                }
-            } catch (NumberParseException) {
-                // fall through
-            }
-
-            return $this->genericFailure();
-        }
+        $countryCodes = $this->countryCodes();
 
         // Reject the configuration before checking the number, so the result
         // does not depend on the order of the country codes.
-        foreach ($this->countryCodes as $countryCode) {
+        foreach ($countryCodes as $countryCode) {
             if (! CountryUtil::isValid($countryCode)) {
                 return [
                     'key' => 'laraphone::validation.field_country_code_invalid',
@@ -83,39 +100,180 @@ class PhoneNumberRule implements ValidationRule
             }
         }
 
-        foreach ($this->countryCodes as $countryCode) {
+        $phone = empty($countryCodes)
+            ? $this->parseInternational($value)
+            : $this->parseForCountries($value, $countryCodes);
+
+        if ($phone === null) {
+            return empty($countryCodes) ? $this->genericFailure() : [
+                'key' => 'laraphone::validation.field_phone_country_code',
+                'replace' => ['country' => $this->countryNames()],
+            ];
+        }
+
+        if (! empty($this->types) && ! $this->matchesType($phone)) {
+            return [
+                'key' => 'laraphone::validation.field_phone_type',
+                'replace' => ['type' => $this->typeNames()],
+            ];
+        }
+
+        return null;
+    }
+
+    /**
+     * Add country codes, number types or field names.
+     *
+     * @param  string|array<int, string|null>  $countryCodes
+     */
+    public function setCountryCode(string|array $countryCodes): static
+    {
+        return $this->addParameters(is_array($countryCodes) ? $countryCodes : func_get_args());
+    }
+
+    /**
+     * Only accept numbers of the given type(s).
+     */
+    public function type(PhoneType|string ...$types): static
+    {
+        foreach ($types as $type) {
+            $resolved = PhoneType::resolve($type)
+                ?? throw new \InvalidArgumentException("Unknown phone number type [{$type}].");
+
+            if (! in_array($resolved, $this->types, true)) {
+                $this->types[] = $resolved;
+            }
+        }
+
+        return $this;
+    }
+
+    public function mobile(): static
+    {
+        return $this->type(PhoneType::MOBILE);
+    }
+
+    public function fixedLine(): static
+    {
+        return $this->type(PhoneType::FIXED_LINE);
+    }
+
+    /**
+     * The effective country codes, with field names replaced by their values.
+     *
+     * @return array<int, string>
+     */
+    public function countryCodes(): array
+    {
+        $codes = [];
+
+        foreach ($this->parameters as $parameter) {
+            if (! CountryUtil::isValid($parameter) && Arr::has($this->data, $parameter)) {
+                foreach (Arr::wrap(Arr::get($this->data, $parameter)) as $value) {
+                    if (is_string($value) && trim($value) !== '') {
+                        $codes[] = strtoupper(trim($value));
+                    }
+                }
+
+                continue;
+            }
+
+            $codes[] = strtoupper($parameter);
+        }
+
+        return array_values(array_unique($codes));
+    }
+
+    /**
+     * @return array<int, PhoneType>
+     */
+    public function types(): array
+    {
+        return $this->types;
+    }
+
+    public function countryNames(): string
+    {
+        return implode(', ', array_map(fn ($countryCode) => CountryUtil::name($countryCode), $this->countryCodes()));
+    }
+
+    public function typeNames(): string
+    {
+        return implode(' or ', array_map(fn (PhoneType $type) => $type->label(), $this->types));
+    }
+
+    /**
+     * @param  array<int, mixed>  $parameters
+     */
+    protected function addParameters(array $parameters): static
+    {
+        foreach ($parameters as $parameter) {
+            if (! is_string($parameter) || trim($parameter) === '') {
+                continue;
+            }
+
+            $parameter = trim($parameter);
+
+            if (! CountryUtil::isValid($parameter) && ($type = PhoneType::resolve($parameter)) !== null) {
+                $this->type($type);
+
+                continue;
+            }
+
+            if (! in_array($parameter, $this->parameters, true)) {
+                $this->parameters[] = $parameter;
+            }
+        }
+
+        return $this;
+    }
+
+    protected function parseInternational(string $value): ?LibPhoneNumber
+    {
+        $util = PhoneNumberUtil::getInstance();
+
+        try {
+            $phone = $util->parse($value);
+        } catch (NumberParseException) {
+            return null;
+        }
+
+        return str_starts_with(trim($value), '+') && $util->isValidNumber($phone) ? $phone : null;
+    }
+
+    /**
+     * @param  array<int, string>  $countryCodes
+     */
+    protected function parseForCountries(string $value, array $countryCodes): ?LibPhoneNumber
+    {
+        $util = PhoneNumberUtil::getInstance();
+
+        foreach ($countryCodes as $countryCode) {
             try {
-                if ($util->isValidNumberForRegion($util->parse($value, $countryCode), $countryCode)) {
-                    return null;
+                $phone = $util->parse($value, $countryCode);
+
+                if ($util->isValidNumberForRegion($phone, $countryCode)) {
+                    return $phone;
                 }
             } catch (NumberParseException) {
                 // try the next country code
             }
         }
 
-        return [
-            'key' => 'laraphone::validation.field_phone_country_code',
-            'replace' => ['country' => $this->countryNames()],
-        ];
+        return null;
     }
 
-    /**
-     * @param  string|array<int, string|null>  $countryCodes
-     */
-    public function setCountryCode(string|array $countryCodes): static
+    protected function matchesType(LibPhoneNumber $phone): bool
     {
-        $countryCodes = is_array($countryCodes) ? $countryCodes : func_get_args();
+        $type = PhoneType::fromLibPhoneNumber(PhoneNumberUtil::getInstance()->getNumberType($phone));
 
-        $this->countryCodes = static::normalizeCountryCodes(
-            array_merge($this->countryCodes, $countryCodes)
-        );
+        foreach ($this->types as $requested) {
+            if ($type->satisfies($requested)) {
+                return true;
+            }
+        }
 
-        return $this;
-    }
-
-    public function countryNames(): string
-    {
-        return implode(', ', array_map(fn ($countryCode) => CountryUtil::name($countryCode), $this->countryCodes));
+        return false;
     }
 
     /**
@@ -128,16 +286,5 @@ class PhoneNumberRule implements ValidationRule
             'key' => trans()->has('validation.phone') ? 'validation.phone' : 'laraphone::validation.phone',
             'replace' => [],
         ];
-    }
-
-    /**
-     * @param  string|array<int, mixed>|null  $countryCodes
-     * @return array<int, string>
-     */
-    protected static function normalizeCountryCodes(string|array|null $countryCodes): array
-    {
-        $codes = array_filter(Arr::wrap($countryCodes), fn ($code) => is_string($code) && trim($code) !== '');
-
-        return array_values(array_unique(array_map(fn ($code) => strtoupper(trim($code)), $codes)));
     }
 }

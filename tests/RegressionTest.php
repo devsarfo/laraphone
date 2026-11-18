@@ -15,7 +15,7 @@ describe('PhoneNumber parse errors', function () {
             $this->fail('Expected exception');
         } catch (PhoneNumberParseException $e) {
             expect($e->getMessage())->toBe('The phone number does not match GH.')
-                ->and($e->getCountryCodes())->toBe(['gh'])
+                ->and($e->getCountryCodes())->toBe(['GH'])
                 ->and($e->getPhone())->toBe('abc');
         }
     });

@@ -20,7 +20,7 @@ function ruleMessages(PhoneNumberRule $rule, mixed $value): array
 
 function countryCodesOf(PhoneNumberRule $rule): array
 {
-    return (new ReflectionProperty($rule, 'countryCodes'))->getValue($rule);
+    return $rule->countryCodes();
 }
 
 describe('country codes', function () {

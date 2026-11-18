@@ -8,9 +8,43 @@ use libphonenumber\PhoneNumberUtil;
 
 class CountryUtil
 {
-    public static function name(string $countryCode): string
+    /**
+     * The country's name in the application locale when the intl extension is
+     * available, otherwise the built-in English name. Falls back to the code.
+     */
+    public static function name(string $countryCode, ?string $locale = null): string
     {
-        return self::countries()[strtoupper($countryCode)] ?? strtoupper($countryCode);
+        $countryCode = strtoupper(trim($countryCode));
+
+        return self::intlName($countryCode, $locale)
+            ?? self::countries()[$countryCode]
+            ?? $countryCode;
+    }
+
+    protected static function intlName(string $countryCode, ?string $locale): ?string
+    {
+        if (! class_exists(\Locale::class) || ! self::isValid($countryCode)) {
+            return null;
+        }
+
+        try {
+            $locale ??= app()->getLocale();
+        } catch (\Throwable) {
+            $locale = 'en';
+        }
+
+        $name = \Locale::getDisplayRegion('-'.$countryCode, $locale);
+
+        // ICU returns the code itself when it has no name for it
+        return is_string($name) && $name !== '' && $name !== $countryCode ? $name : null;
+    }
+
+    /**
+     * The built-in English name, regardless of the intl extension.
+     */
+    public static function builtinName(string $countryCode): ?string
+    {
+        return self::countries()[strtoupper(trim($countryCode))] ?? null;
     }
 
     public static function isValid(mixed $countryCode): bool

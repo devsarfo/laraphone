@@ -38,12 +38,14 @@ class LaraPhoneServiceProvider extends PackageServiceProvider
     public function packageBooted(): void
     {
         $this->callAfterResolving('validator', function (Factory $factory) {
-            $factory->extend('phone', function ($attribute, $value, array $parameters) {
-                return (new PhoneNumberRule($parameters))->failure($value) === null;
+            // Dependent, so that "*" in field-name parameters (phone:items.*.country)
+            // is replaced with the index of the attribute being validated.
+            $factory->extendDependent('phone', function ($attribute, $value, array $parameters, Validator $validator) {
+                return (new PhoneNumberRule($parameters))->setData($validator->getData())->failure($value) === null;
             }, self::FALLBACK_MESSAGE);
 
             $factory->replacer('phone', function ($message, $attribute, $rule, array $parameters, Validator $validator) {
-                $phoneRule = new PhoneNumberRule($parameters);
+                $phoneRule = (new PhoneNumberRule($parameters))->setData($validator->getData());
                 $displayable = $validator->getDisplayableAttribute($attribute);
 
                 // An application-wide "validation.phone" line only replaces the
@@ -60,8 +62,12 @@ class LaraPhoneServiceProvider extends PackageServiceProvider
                     }
                 }
 
-                // Custom messages may still use the :country placeholder.
-                return str_replace(':country', $phoneRule->countryNames(), $message);
+                // Custom messages may still use the :country and :type placeholders.
+                return str_replace(
+                    [':country', ':type'],
+                    [$phoneRule->countryNames(), $phoneRule->typeNames()],
+                    $message
+                );
             });
         });
 
