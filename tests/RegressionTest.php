@@ -1,6 +1,7 @@
 <?php
 
 use DevSarfo\LaraPhone\Exceptions\PhoneNumberParseException;
+use DevSarfo\LaraPhone\Facades\LaraPhone;
 use DevSarfo\LaraPhone\Models\PhoneNumber;
 use DevSarfo\LaraPhone\Rules\PhoneNumberRule;
 use Illuminate\Support\Facades\Validator;
@@ -29,6 +30,20 @@ describe('PhoneNumber safety', function () {
     it('returns false from isValid for an unsupported country code', function () {
         expect((new PhoneNumber('0244123456', 'XX'))->isValid())->toBeFalse();
     });
+
+    it('restricts isValid to the given countries, like the validation rule', function (string $phone, string|array $countries, bool $expected) {
+        expect((new PhoneNumber($phone, $countries))->isValid())->toBe($expected)
+            ->and(LaraPhone::isValid($phone, $countries))->toBe($expected)
+            ->and(Validator::make(['p' => $phone], ['p' => new PhoneNumberRule($countries)])->passes())->toBe($expected);
+    })->with([
+        'international, allowed' => ['+4722334455', 'NO', true],
+        'international, not allowed' => ['+4722334455', 'GH', false],
+        'international, one of several' => ['+4722334455', ['GH', 'NO'], true],
+        'national, allowed' => ['0244123456', 'GH', true],
+        'shared +1 code, wrong country' => ['+16135550123', 'US', false],
+        'shared +1 code, right country' => ['+16135550123', ['US', 'CA'], true],
+        'unsupported country code' => ['+233244123456', 'XX', false],
+    ]);
 
     it('serializes invalid numbers without throwing', function () {
         $restored = unserialize(serialize(new PhoneNumber('abc', 'GH')));

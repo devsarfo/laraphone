@@ -119,7 +119,16 @@ class PhoneNumber implements JsonSerializable
     public function isValid(): bool
     {
         try {
-            return PhoneNumberUtil::getInstance()->isValidNumberForRegion($this->toPhoneNumber(), $this->getCountryCode() ?? 'ZZ');
+            $countryCode = $this->getCountryCode();
+            $allowed = CountryUtil::parse($this->countryCodes);
+
+            // Like the validation rule, the given country codes restrict the
+            // allowed countries, including for numbers in international format.
+            if ($countryCode === null || (! empty($allowed) && ! in_array($countryCode, $allowed, true))) {
+                return false;
+            }
+
+            return PhoneNumberUtil::getInstance()->isValidNumberForRegion($this->toPhoneNumber(), $countryCode);
         } catch (NumberParseException|CountryCodeException) {
             return false;
         }
