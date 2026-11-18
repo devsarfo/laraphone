@@ -3,49 +3,68 @@
 namespace DevSarfo\LaraPhone;
 
 use DevSarfo\LaraPhone\Rules\PhoneNumberRule;
+use Illuminate\Support\Arr;
 use Illuminate\Validation\Factory;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 use libphonenumber\PhoneNumberUtil;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 
 class LaraPhoneServiceProvider extends PackageServiceProvider
 {
+    /**
+     * Fallback message for the string-based "phone" rule. When Laravel resolves
+     * to this value (no custom message defined), the replacer substitutes the
+     * specific package message for the failure that occurred.
+     */
+    public const FALLBACK_MESSAGE = 'laraphone::validation.phone';
+
     public function configurePackage(Package $package): void
     {
         $package->name('laraphone')
             ->hasConfigFile()
             ->hasTranslations();
+    }
 
-        // Register the libphonenumber Library as singleton
-        $this->app->singleton('libphonenumber', function ($app) {
-            return PhoneNumberUtil::getInstance();
-        });
-
+    public function packageRegistered(): void
+    {
+        $this->app->singleton('libphonenumber', fn () => PhoneNumberUtil::getInstance());
         $this->app->alias('libphonenumber', PhoneNumberUtil::class);
+    }
 
-        // Register the validation rule globally
-        $this->callAfterResolving('validator', function (Factory $validator) {
-            $validator->extendDependent('phone', function ($attribute, $value, array $parameters, $validator) {
-                // Create the PhoneNumberRule object
-                $rule = new PhoneNumberRule($parameters);
+    public function packageBooted(): void
+    {
+        $this->callAfterResolving('validator', function (Factory $factory) {
+            $factory->extend('phone', function ($attribute, $value, array $parameters) {
+                return (new PhoneNumberRule($parameters))->failure($value) === null;
+            }, self::FALLBACK_MESSAGE);
 
-                // Validate using the custom rule's `validate` method
-                $failClosure = function ($message) use ($validator, $attribute) {
-                    $validator->errors()->add($attribute, $message);
+            $factory->replacer('phone', function ($message, $attribute, $rule, array $parameters, Validator $validator) {
+                $phoneRule = new PhoneNumberRule($parameters);
+                $displayable = $validator->getDisplayableAttribute($attribute);
 
-                    return $message;
-                };
+                // An application-wide "validation.phone" line only replaces the
+                // generic message; country-specific failures keep the package
+                // messages. Inline and "validation.custom" messages always win.
+                $isDefault = $message === self::FALLBACK_MESSAGE
+                    || (trans()->has('validation.phone') && $message === trans('validation.phone', ['attribute' => $displayable]));
 
-                $rule->validate($attribute, $value, $failClosure);
+                if ($isDefault) {
+                    $failure = $phoneRule->failure(Arr::get($validator->getData(), $attribute));
 
-                // Return true if validation passed, false otherwise
-                return ! $validator->errors()->has($attribute);
+                    if ($failure !== null && $failure['key'] !== 'validation.phone') {
+                        $message = trans($failure['key'], $failure['replace'] + ['attribute' => $displayable]);
+                    }
+                }
+
+                // Custom messages may still use the :country placeholder.
+                return str_replace(':country', $phoneRule->countryNames(), $message);
             });
         });
 
         Rule::macro('phone', function (...$countryCodes) {
-            return new PhoneNumberRule($countryCodes);
+            return new PhoneNumberRule(Arr::flatten($countryCodes));
         });
     }
 }

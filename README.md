@@ -49,11 +49,21 @@ The country codes should be [*ISO 3166-1 alpha-2 compliant*](http://en.wikipedia
 
 ### Validation Message
 
-We provide validation for various cases out of the box. However, to enable the custom phone validation message, please add the following line to the `validation.php` language file in your `resources/lang/{language}/` directory (e.g., `resources/lang/en/validation.php`):
+Validation messages are provided out of the box, e.g. *"The phone must be a valid phone number for Ghana."* Publish the translations to change them.
+
+You can also override the message the usual Laravel ways. Custom messages may use the `:country` placeholder:
 
 ```php
+// Per validator
+Validator::make($data, ['phone' => 'phone:GH,NO'], [
+    'phone.phone' => 'Enter a valid :country number.',
+]);
+
+// Application-wide, in lang/{locale}/validation.php
 'phone' => 'The :attribute field must be a valid phone number.',
 ```
+
+An application-wide `validation.phone` line only replaces the generic message (no country given). Country-specific messages such as *"…for Ghana."* still come from the package unless you set an inline or `validation.custom` message.
 
 ## PhoneNumber Utility class
 

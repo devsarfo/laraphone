@@ -43,7 +43,7 @@ class PhoneNumberRuleTest extends TestCase
 
         $fail = function ($message) {
             // You can assert error message here
-            $this->assertEquals('validation.phone', $message);
+            $this->assertEquals('The :attribute field must be a valid phone number.', $message);
         };
 
         // Test with a valid international number format
@@ -60,7 +60,7 @@ class PhoneNumberRuleTest extends TestCase
 
         $fail = function ($message) {
             // You can assert error message here
-            $this->assertEquals('The phone must be a valid phone number for Ghana.', $message);
+            $this->assertEquals('The :attribute must be a valid phone number for Ghana.', $message);
         };
 
         // Test valid phone number for Ghana country code
@@ -77,7 +77,7 @@ class PhoneNumberRuleTest extends TestCase
 
         $fail = function ($message) {
             // Assert the expected error message
-            $this->assertEquals('The phone has an invalid country code XYZ.', $message);
+            $this->assertEquals('The :attribute has an invalid country code XYZ.', $message);
         };
 
         // Test with an invalid country code
@@ -111,7 +111,7 @@ class PhoneNumberRuleTest extends TestCase
         $rule = (new PhoneNumberRule)->setCountryCode('GH');
 
         $fail = function ($message) {
-            $this->assertEquals('The phone must be a valid phone number for Ghana.', $message);
+            $this->assertEquals('The :attribute must be a valid phone number for Ghana.', $message);
         };
 
         // Trigger failure
@@ -121,7 +121,6 @@ class PhoneNumberRuleTest extends TestCase
     protected function getClassProperty(object $object, string $property)
     {
         $property = (new ReflectionClass($object))->getProperty($property);
-        $property->setAccessible(true);
 
         return $property->getValue($object);
     }

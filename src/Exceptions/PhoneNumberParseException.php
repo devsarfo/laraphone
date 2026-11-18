@@ -32,12 +32,12 @@ class PhoneNumberParseException extends NumberParseException
         $exception = new static(
             NumberParseException::INVALID_COUNTRY_CODE,
             trans('laraphone::validation.country_code_invalid', [
-                'country_code' => implode(', ', $countries),
+                'country' => implode(', ', array_map('strtoupper', $countries)),
             ])
         );
 
         $exception->phone = $phone;
-        $exception->countryCodes = $countryCodes;
+        $exception->countryCodes = array_values($countries);
 
         return $exception;
     }

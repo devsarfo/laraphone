@@ -2,6 +2,7 @@
 
 namespace DevSarfo\LaraPhone\Models;
 
+use DevSarfo\LaraPhone\Exceptions\CountryCodeException;
 use DevSarfo\LaraPhone\Exceptions\PhoneNumberParseException;
 use DevSarfo\LaraPhone\Utils\CountryUtil;
 use Exception;
@@ -110,30 +111,35 @@ class PhoneNumber implements JsonSerializable
     {
         try {
             return PhoneNumberUtil::getInstance()->isValidNumberForRegion($this->toPhoneNumber(), $this->getCountryCode() ?? 'ZZ');
-        } catch (NumberParseException) {
+        } catch (NumberParseException|CountryCodeException) {
             return false;
         }
     }
 
     /**
-     * @throws PhoneNumberParseException
+     * The E.164 representation, or the raw input when it cannot be parsed.
      */
     public function jsonSerialize(): string
     {
-        return $this->formatE164();
+        return (string) $this;
     }
 
     /**
-     * @throws PhoneNumberParseException
+     * Keep the raw input and country codes so that invalid numbers can be
+     * serialized (e.g. inside queued jobs) without throwing.
      */
-    public function __serialize()
+    public function __serialize(): array
     {
-        return ['phone' => $this->formatE164()];
+        return [
+            'phone' => $this->phone,
+            'countryCodes' => $this->countryCodes,
+        ];
     }
 
-    public function __unserialize(array $serialized)
+    public function __unserialize(array $serialized): void
     {
-        $this->phone = $serialized['phone'];
+        $this->phone = $serialized['phone'] ?? '';
+        $this->countryCodes = $serialized['countryCodes'] ?? [];
     }
 
     /**
@@ -144,9 +150,9 @@ class PhoneNumber implements JsonSerializable
         try {
             return PhoneNumberUtil::getInstance()->parse($this->phone, $this->getCountryCode());
         } catch (NumberParseException) {
-            empty($this->countries)
+            empty($this->countryCodes)
                 ? throw PhoneNumberParseException::countryRequired($this->phone)
-                : throw PhoneNumberParseException::countryMismatch($this->phone, $this->countries);
+                : throw PhoneNumberParseException::countryMismatch($this->phone, $this->countryCodes);
         }
     }
 

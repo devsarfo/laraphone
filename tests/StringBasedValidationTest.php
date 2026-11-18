@@ -180,7 +180,7 @@ class StringBasedValidationTest extends TestCase
         ]);
 
         $this->assertTrue($validator->fails());
-        $this->assertEquals('validation.phone', $validator->errors()->first('phone'));
+        $this->assertEquals('The phone field must be a valid phone number.', $validator->errors()->first('phone'));
     }
 
     #[Test]

@@ -8,7 +8,7 @@ if (! function_exists('phone')) {
     /**
      * @throws PhoneNumberParseException
      */
-    function phone(?string $phone, array|string $country = [], ?PhoneNumberFormat $format = null): PhoneNumber|string
+    function phone(?string $phone, array|string $country = [], PhoneNumberFormat|int|null $format = null): PhoneNumber|string
     {
         $instance = new PhoneNumber($phone, $country);
 

@@ -106,7 +106,6 @@ class PhoneNumberTest extends TestCase
     protected function getClassProperty(object $object, string $property)
     {
         $property = (new \ReflectionClass($object))->getProperty($property);
-        $property->setAccessible(true);
 
         return $property->getValue($object);
     }
